@@ -1,0 +1,6 @@
+@KolosAPBD2a_HostAddress = http://localhost:5115
+
+GET {{KolosAPBD2a_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
