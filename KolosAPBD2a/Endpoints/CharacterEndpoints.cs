@@ -39,7 +39,7 @@ public static class CharacterEndpoints
             try
             {
                 var backpacks = await service.AddProductsToBackPack(data, id);
-                return Results.Ok(backpacks);
+                return Results.Created($"/{backpacks}", backpacks);
             }
             catch (NotFoundException e)
             {

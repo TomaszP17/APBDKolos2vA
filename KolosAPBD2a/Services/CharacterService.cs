@@ -45,21 +45,20 @@ public class CharacterService(DatabaseContext context) : ICharacterService
     }
 
     public async Task<IEnumerable<GetBackPackResponseModel>> AddProductsToBackPack(CreateBackPackRequestModel data, int id)
-{
-    var character = await context.Characters
-        .Include(c => c.BackPacks) // Ensure BackPacks are included
-        .Where(c => c.Id == id).FirstOrDefaultAsync();
+    {
+        var character = context.Characters
+            .Include(c => c.BackPacks)
+            .FirstOrDefault(e => e.Id == id);
     
     if (character is null)
     {
         throw new NotFoundException($"Character with that id: {id} does not exist");
     }
 
-    var itemsFromData = data.ProductsId.ToList();
+    var itemsFromData = data.ProductsId;
 
     var items = await context.Items
         .Where(i => itemsFromData.Contains(i.Id))
-        .Distinct()
         .ToListAsync();
 
     if (items.Count != itemsFromData.Count)
@@ -67,7 +66,7 @@ public class CharacterService(DatabaseContext context) : ICharacterService
         throw new NotFoundException("Some items not found");
     }
 
-    var sumOfWeight = items.Sum(item => item.Weight * data.ProductsId.Count(ii => ii == item.Id));
+    var sumOfWeight = items.Sum(item => item.Weight);
 
     var characterFreeWeight = character.MaxWeight - character.CurrentWeight;
 
@@ -109,7 +108,6 @@ public class CharacterService(DatabaseContext context) : ICharacterService
     }
     catch (DbUpdateException ex)
     {
-        // Handle specific DbUpdateException here if necessary
         throw new Exception("An error occurred while updating the database", ex);
     }
 
