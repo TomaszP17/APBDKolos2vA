@@ -11,5 +11,4 @@ public class GetCharacterResonseModel
     public List<GetItemResponseModel> BackPackItems { get; set; }
     public List<GetCharacterTitleResponseModel> Titles { get; set; }
     
-    
 }

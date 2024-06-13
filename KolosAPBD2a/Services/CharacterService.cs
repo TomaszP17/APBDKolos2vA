@@ -44,32 +44,81 @@ public class CharacterService(DatabaseContext context) : ICharacterService
         return result;
     }
 
-    public async Task AddProductsToBackPack(CreateBackPackRequestModel data, int id)
+    public async Task<IEnumerable<GetBackPackResponseModel>> AddProductsToBackPack(CreateBackPackRequestModel data, int id)
+{
+    var character = await context.Characters
+        .Include(c => c.BackPacks) // Ensure BackPacks are included
+        .Where(c => c.Id == id).FirstOrDefaultAsync();
+    
+    if (character is null)
     {
-        var characterId = await context.Characters
-            .Where(c => c.Id == id).FirstOrDefaultAsync();
-        if (characterId is null)
-        {
-            throw new NotFoundException($"Character with that id: {id} does not exists");
-        }
-
-        var itemsFromData = data.ProductsId.ToList();
-
-        var items = await context.Items
-            .Where(i => itemsFromData.Contains(i.Id))
-            .ToListAsync();
-
-        if (items.Count != itemsFromData.Count)
-        {
-            throw new NotFoundException("Not found some item");
-        }
-
-        var sumOfWeight = 0;
-        for (int i = 0; i < items.Count(); i++)
-        {
-            sumOfWeight += items[i].Weight * data.ProductsId.Count(id => id == items[i].Id);
-        }
-        
-        
+        throw new NotFoundException($"Character with that id: {id} does not exist");
     }
+
+    var itemsFromData = data.ProductsId.ToList();
+
+    var items = await context.Items
+        .Where(i => itemsFromData.Contains(i.Id))
+        .Distinct()
+        .ToListAsync();
+
+    if (items.Count != itemsFromData.Count)
+    {
+        throw new NotFoundException("Some items not found");
+    }
+
+    var sumOfWeight = items.Sum(item => item.Weight * data.ProductsId.Count(ii => ii == item.Id));
+
+    var characterFreeWeight = character.MaxWeight - character.CurrentWeight;
+
+    if (sumOfWeight > characterFreeWeight)
+    {
+        throw new TooBigWeightException("These items are too heavy for this character");
+    }
+
+    foreach (var productId in data.ProductsId)
+    {
+        var item = items.FirstOrDefault(it => it.Id == productId);
+
+        if (item == null) continue;
+
+        var characterBackPack = character.BackPacks.FirstOrDefault(bp => bp.ItemId == item.Id);
+
+        if (characterBackPack != null)
+        {
+            characterBackPack.Amount += 1;
+        }
+        else
+        {
+            var newBackPack = new BackPack
+            {
+                CharacterId = id,
+                ItemId = productId,
+                Amount = 1
+            };
+
+            await context.BackPacks.AddAsync(newBackPack);
+        }
+
+        character.CurrentWeight += item.Weight;
+    }
+
+    try
+    {
+        await context.SaveChangesAsync();
+    }
+    catch (DbUpdateException ex)
+    {
+        // Handle specific DbUpdateException here if necessary
+        throw new Exception("An error occurred while updating the database", ex);
+    }
+
+    return character.BackPacks.Select(bp => new GetBackPackResponseModel
+    {
+        Amount = bp.Amount,
+        ItemId = bp.ItemId,
+        CharacterId = bp.CharacterId
+    }).ToList();
+}
+
 }

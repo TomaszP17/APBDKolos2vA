@@ -35,13 +35,17 @@ public static class CharacterEndpoints
             {
                 return Results.ValidationProblem(validate.ToDictionary());
             }
-            
+
             try
             {
-                await service.AddProductsToBackPack(data, id);
-                return Results.NoContent();
+                var backpacks = await service.AddProductsToBackPack(data, id);
+                return Results.Ok(backpacks);
             }
             catch (NotFoundException e)
+            {
+                return Results.NotFound(e.Message);
+            }
+            catch (TooBigWeightException e)
             {
                 return Results.NotFound(e.Message);
             }
